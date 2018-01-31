@@ -1,0 +1,321 @@
+DataDive2017
+========================================================
+author: Team 2: Dana, Eric, Jon, Maliha, Mikael & Nathan 
+
+date: November 18th, 2017
+autosize: true
+
+Research Topic: Revenue Collection in the Extractive Industry
+========================================================
+Question- Is there evidence that certain types of revenue collection regimes respond better to changes in commodity markets than others? Are any revenue collection regimes less effective at capturing the maximum amount of revenue in price/production upturns and downturns? 
+
+Defining Our Approach
+========================================================
+- We wanted to examine how commodity prices, commodity production, and exports in EITI membership countries would influence the amount of money collected under different revenue collection regimes (more on these in a minute).
+
+- In order to examine the effect of these different revenue collection regimes, we wanted to create a ratio variable that measures how well each country captures tax revenue based on their natural resource production.
+
+What's a Revenue Collection Regimes?
+========================================================
+- According to the National Resource Governance Institute (NRGI), a fiscal regime is a set of tools that determines how the revenues from oil and mining projects are shared between the government and companies.
+- Variety of fiscal tools governments use to create a fiscal regime: royalties, taxes, production sharing, bonuses, etc.
+- Which fiscal tools a government uses depends on when the state wants the revenues, how to share the investment, how to respond to changes in profitability and how to promote new investments
+
+Example of Revenue Flows in Tax and Royalty System
+========================================================
+```{r, echo = FALSE}
+knitr::include_graphics("infographicNRGI.png")
+```
+
+Revenue Collection Over Time
+========================================================
+
+```{r, echo = FALSE}
+knitr::include_graphics("RplotRevs.jpeg")
+```
+
+The Data
+========================================================
+- Dataset 3 includes info from EITI initiatives. Key variables were country, year, type of revenue stream, tax regime and how much they collected (in USD).
+- Cleaned up and organized: combined EITI data with petroleum and mineral price indexes, export data and production information.
+
+
+The Data, continued
+========================================================
+- Limitations/issues in the data: confusing/negative values, government changing and tax regimes changing year to year, regime utilization is not uniform throughout time. EITI data not split by commodity, rough approximations of commodities for these groups; minerals a lot of different things so harder to separate (reality in this sector).
+- Creation of additional variables: in order to address our question, we created a variable to represent tax revenue to value of the resource produced in a given year (product of price and production).
+
+Revenue Ratio by Country Over Time
+========================================================
+
+```{r, echo=FALSE}
+library(readr)
+q3 <- read_csv("q3_with_ratios.csv")
+#View(q3)
+
+#q3a <- read_csv("q3.csv")
+
+library(ggplot2)
+
+
+####mika's data to merge
+
+#library(readr)
+to_merge <- read_csv("regimes_by_country_year.csv")
+#View(to_merge)
+
+#q3 <- q3[-204,]
+m3 <- merge(x = q3, y = to_merge, by = "X1", all.x = TRUE)
+m3 <- m3[-c(200:232),]
+
+#View(m3)
+
+#m3$country.x==m3$country.y
+#m3$year.x==m3$year.y
+
+sub <- m3[m3$gfs_description == "Delivered/paid directly to government" | m3$gfs_description == "Royalties" | m3$gfs_description == "Ordinary taxes on income, profits and capital gains"| m3$gfs_description == "Extraordinary taxes on income, profits and capital gains",]
+
+upturn <- sub[sub$year.x == 2002 | sub$year.x == 2003 | sub$year.x == 2004 |sub$year.x == 2005 |sub$year.x == 2006 |sub$year.x == 2007 |  sub$year.x == 2008 | sub$year.x == 2010 | sub$year.x == 2011 | sub$year.x == 2012,]
+dwnturn <- sub[sub$year.x == 2001 | sub$year.x == 2009 | sub$year.x == 2013 |sub$year.x == 2014 |sub$year.x == 2015,]
+
+#upgraph <- ggplot(upturn, aes(year.y, ratio_rev_oilprod, fill = country.y)) + 
+  #geom_col(position = "dodge") + 
+  #geom_point() +
+  #scale_y_log10()+
+  #facet_wrap( ~ gfs_description, ncol = 2)
+
+upgraph <- ggplot(upturn, aes(year.y, ratio_rev_oilprod, color = country.y)) + 
+  geom_line() + 
+  geom_point() +
+  scale_y_log10()+
+  facet_wrap( ~ gfs_description, ncol = 2)
+
+dwngraph <- ggplot(dwnturn, aes(year.y, ratio_rev_oilprod, color = country.y)) + 
+  geom_line() + 
+  geom_point() +
+  scale_y_log10()+
+  facet_wrap( ~ gfs_description, ncol = 2)
+
+#allgraph <- ggplot(sub, aes(year.y, ratio_rev_oilprod, color = country.y)) + 
+ # geom_line() + 
+  #geom_point() +
+  #scale_y_log10()+
+  #facet_wrap( ~ gfs_description, ncol = 2)
+
+#huh <- ggplot(m3, aes(year.x, ratio_rev_oilprod, color = country.x)) + 
+ # geom_line() + 
+  #geom_point() +
+  #scale_y_log10()+
+#  facet_wrap( ~ as.factor(gfs_description), ncol = 2)
+
+```
+
+
+```{r, echo=FALSE}
+upgraph
+```
+
+
+
+```{r, echo=FALSE}
+load('raw_data.RData')
+
+library(gridExtra)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+
+
+X <- select(Q3_SUMMARY,  country,  year,  government_agency_name,  gfs_description,  
+            value_reported_as_USD)
+
+### percentages of revenues by regime by country
+by_regime <- list(0)
+for(i in 1:length(unique(X$country))) {
+   by_regime[[i]] <- X %>% 
+      aggregate(data = .,  FUN = sum, 
+                value_reported_as_USD ~ country + year + gfs_description) %>%
+      group_by(country,  year) %>%
+      mutate(total_yr = sum(value_reported_as_USD)) %>%
+      mutate(pct_yr = value_reported_as_USD / total_yr) %>% 
+      filter(country == unique(X$country)[i]) %>%
+      ggplot() + 
+         geom_bar(aes(y = pct_yr,  x = year,  fill = gfs_description), 
+                  stat = "identity") +
+         ggtitle(paste(unique(X$country)[i])) + 
+         scale_fill_discrete(name = "Collection regime")
+}
+
+
+### percentages of revenues by agency by country
+by_agency <- list(0)
+for(i in 1:length(unique(X$country))) {
+   by_agency[[i]] <- X %>% 
+      aggregate(data = .,  FUN = sum, 
+                value_reported_as_USD ~ country + year + government_agency_name) %>%
+      group_by(country,  year) %>%
+      mutate(total_yr = sum(value_reported_as_USD)) %>%
+      mutate(pct_yr = value_reported_as_USD / total_yr) %>% 
+      filter(country == unique(X$country)[i]) %>%
+      ggplot() + 
+         geom_bar(aes(y = pct_yr,  x = year,  fill = government_agency_name), 
+                  stat = "identity") +
+         ggtitle(paste(unique(X$country)[i])) + 
+         scale_fill_discrete(name = "Collection agency")
+}
+```
+
+
+Revenue Ratio by Country Over Time
+========================================================
+
+```{r, echo  = FALSE}
+dwngraph
+```
+
+
+Breakdown of Agencies in Norway
+========================================================
+
+```{r, echo=FALSE}
+by_agency[[10]]
+
+```
+
+Breakdown of Regimes in Norway (as Percent Total)
+========================================================
+
+```{r, echo=FALSE}
+
+by_regime[[10]]
+```
+
+Revenue Breakdown (in US dollars) per Regime in Norway
+========================================================
+
+```{r, echo=FALSE}
+ regime_absolute <- list(0)
+for(i in 1:length(unique(X$country))) {
+   regime_absolute[[i]] <- X %>% 
+      aggregate(data = .,  FUN = sum, 
+                value_reported_as_USD ~ country + year + gfs_description) %>%
+      group_by(country,  year) %>%
+      filter(country == unique(X$country)[i]) %>%
+      ggplot() + 
+         geom_bar(aes(y = value_reported_as_USD,  x = year,  fill = gfs_description), 
+                  stat = "identity") +
+         ggtitle(paste(unique(X$country)[i])) +
+         scale_fill_discrete(name = "Collection agency") + ylab("US Dollars")
+}
+
+regime_absolute[[10]]
+```
+
+
+Breakdown of Agencies in Iraq
+========================================================
+
+```{r, echo=FALSE}
+by_agency[[23]]
+
+```
+
+Breakdown of Regimes in Iraq
+========================================================
+
+```{r, echo=FALSE}
+
+by_regime[[23]]
+```
+
+Revenue Breakdown (in US dollars) per Regime in Iraq
+========================================================
+
+```{r, echo=FALSE}
+
+regime_absolute[[23]]
+
+```
+
+
+Breakdown of Regimes in Yemen
+========================================================
+
+```{r, echo=FALSE}
+
+by_regime[[1]]
+
+```
+
+Revenue Breakdown (in US dollars) per Regime in Yemen
+========================================================
+
+```{r, echo=FALSE}
+
+regime_absolute[[1]]
+
+```
+
+Breakdown of Regimes in Nigeria
+========================================================
+
+```{r, echo=FALSE}
+
+by_regime[[14]]
+```
+
+
+Revenue Breakdown (in US dollars) per Regime in Nigeria
+========================================================
+
+```{r, echo=FALSE}
+regime_absolute[[14]]
+
+```
+
+Breakdown of Regimes in Kazakhstan
+========================================================
+
+```{r, echo=FALSE}
+
+by_regime[[17]]
+```
+
+Revenue Breakdown (in US dollars) per Regime in Kazakhstan
+========================================================
+
+```{r, echo=FALSE}
+ regime_absolute <- list(0)
+for(i in 1:length(unique(X$country))) {
+   regime_absolute[[i]] <- X %>% 
+      aggregate(data = .,  FUN = sum, 
+                value_reported_as_USD ~ country + year + gfs_description) %>%
+      group_by(country,  year) %>%
+      filter(country == unique(X$country)[i]) %>%
+      ggplot() + 
+         geom_bar(aes(y = value_reported_as_USD,  x = year,  fill = gfs_description), 
+                  stat = "identity") +
+         ggtitle(paste(unique(X$country)[i])) +
+         scale_fill_discrete(name = "Collection agency") + ylab("US Dollars")
+}
+
+regime_absolute[[17]]
+
+```
+
+
+Total Revenue Collection by Regime
+========================================================
+
+```{r, echo = FALSE}
+knitr::include_graphics("Total Revenue Collection by Regime Type.jpeg")
+```
+
+Percent Revenue Collection by Regime
+========================================================
+
+```{r, echo = FALSE}
+knitr::include_graphics("Percent Rev Collection by Regime.jpeg")
+```
+
+
